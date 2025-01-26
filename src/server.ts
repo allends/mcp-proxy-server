@@ -1,57 +1,114 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import {
   CallToolRequestSchema,
+  CompatibilityCallToolResultSchema,
   GetPromptRequestSchema,
+  GetPromptResultSchema,
   ListPromptsRequestSchema,
-  ListResourcesRequestSchema,
-  ListToolsRequestSchema,
-  ReadResourceRequestSchema,
-  Tool,
-  ListToolsResultSchema,
   ListPromptsResultSchema,
+  ListResourcesRequestSchema,
   ListResourcesResultSchema,
-  ReadResourceResultSchema,
   ListResourceTemplatesRequestSchema,
   ListResourceTemplatesResultSchema,
+  ListToolsRequestSchema,
+  ListToolsResultSchema,
+  ReadResourceRequestSchema,
+  ReadResourceResultSchema,
   ResourceTemplate,
-  CompatibilityCallToolResultSchema,
-  GetPromptResultSchema,
+  Tool,
 } from "@modelcontextprotocol/sdk/types.js";
-import { createClients, ConnectedClient } from "./client.js";
-import { Config, loadConfig } from "./config.js";
 import { z } from "zod";
+import { ConnectedClient, createClients } from "./client.js";
+import { loadConfig } from "./config.js";
 
-export const createServer = async () => {
-  // Load configuration and connect to servers
-  const config = await loadConfig();
-  const connectedClients = await createClients(config.servers);
-  console.log(`Connected to ${connectedClients.length} servers`);
+export class ProxyServer extends Server {
+  private connectedClients: ConnectedClient[] = [];
+  private toolToClientMap = new Map<string, ConnectedClient>();
+  private resourceToClientMap = new Map<string, ConnectedClient>();
+  private promptToClientMap = new Map<string, ConnectedClient>();
 
-  // Maps to track which client owns which resource
-  const toolToClientMap = new Map<string, ConnectedClient>();
-  const resourceToClientMap = new Map<string, ConnectedClient>();
-  const promptToClientMap = new Map<string, ConnectedClient>();
+  private async initialize() {
+    const config = await loadConfig();
+    this.connectedClients = await createClients(config.servers);
+    console.log(`Connected to ${this.connectedClients.length} servers`);
+  }
 
-  const server = new Server(
-    {
-      name: "mcp-proxy-server",
-      version: "1.0.0",
-    },
-    {
-      capabilities: {
-        prompts: {},
-        resources: { subscribe: true },
-        tools: {},
+  // use this to create a new instance
+  public static async create() {
+    const server = new ProxyServer();
+    await server.initialize();
+    return server;
+  }
+
+  private constructor() {
+    super(
+      {
+        name: "mcp-proxy-server",
+        version: "1.0.0",
       },
-    }
-  );
+      {
+        capabilities: {
+          prompts: {},
+          resources: { subscribe: true },
+          tools: {},
+        },
+      }
+    );
 
-  // List Tools Handler
-  server.setRequestHandler(ListToolsRequestSchema, async (request) => {
+    this.bindHandlers();
+  }
+
+  private bindHandlers() {
+    // List Tools Handler
+    this.setRequestHandler(
+      ListToolsRequestSchema,
+      this.handleListTools.bind(this)
+    );
+
+    // Call Tool Handler
+    this.setRequestHandler(
+      CallToolRequestSchema,
+      this.handleCallTool.bind(this)
+    );
+
+    // Get Prompt Handler
+    this.setRequestHandler(
+      GetPromptRequestSchema,
+      this.handleGetPrompt.bind(this)
+    );
+
+    // List Prompts Handler
+    this.setRequestHandler(
+      ListPromptsRequestSchema,
+      this.handleListPrompts.bind(this)
+    );
+
+    // List Resources Handler
+    this.setRequestHandler(
+      ListResourcesRequestSchema,
+      this.handleListResources.bind(this)
+    );
+
+    // Read Resource Handler
+    this.setRequestHandler(
+      ReadResourceRequestSchema,
+      this.handleReadResource.bind(this)
+    );
+
+    // List Resource Templates Handler
+    this.setRequestHandler(
+      ListResourceTemplatesRequestSchema,
+      this.handleListResourceTemplates.bind(this)
+    );
+  }
+
+  private async handleListTools(
+    request: z.infer<typeof ListToolsRequestSchema>
+  ) {
     const allTools: Tool[] = [];
-    toolToClientMap.clear();
+    this.toolToClientMap.clear();
 
-    for (const connectedClient of connectedClients) {
+    for (const connectedClient of this.connectedClients) {
       try {
         const result = await connectedClient.client.request(
           {
@@ -65,7 +122,7 @@ export const createServer = async () => {
 
         if (result.tools) {
           const toolsWithSource = result.tools.map((tool) => {
-            toolToClientMap.set(tool.name, connectedClient);
+            this.toolToClientMap.set(tool.name, connectedClient);
             return {
               ...tool,
               description: `[${connectedClient.name}] ${
@@ -84,12 +141,11 @@ export const createServer = async () => {
     }
 
     return { tools: allTools };
-  });
+  }
 
-  // Call Tool Handler
-  server.setRequestHandler(CallToolRequestSchema, async (request) => {
+  private async handleCallTool(request: z.infer<typeof CallToolRequestSchema>) {
     const { name, arguments: args } = request.params;
-    const clientForTool = toolToClientMap.get(name);
+    const clientForTool = this.toolToClientMap.get(name);
 
     if (!clientForTool) {
       throw new Error(`Unknown tool: ${name}`);
@@ -97,8 +153,6 @@ export const createServer = async () => {
 
     try {
       console.log("Forwarding tool call:", name);
-
-      // Use the correct schema for tool calls
       return await clientForTool.client.request(
         {
           method: "tools/call",
@@ -116,12 +170,13 @@ export const createServer = async () => {
       console.error(`Error calling tool through ${clientForTool.name}:`, error);
       throw error;
     }
-  });
+  }
 
-  // Get Prompt Handler
-  server.setRequestHandler(GetPromptRequestSchema, async (request) => {
+  private async handleGetPrompt(
+    request: z.infer<typeof GetPromptRequestSchema>
+  ) {
     const { name } = request.params;
-    const clientForPrompt = promptToClientMap.get(name);
+    const clientForPrompt = this.promptToClientMap.get(name);
 
     if (!clientForPrompt) {
       throw new Error(`Unknown prompt: ${name}`);
@@ -129,8 +184,6 @@ export const createServer = async () => {
 
     try {
       console.log("Forwarding prompt request:", name);
-
-      // Match the exact structure from the example code
       const response = await clientForPrompt.client.request(
         {
           method: "prompts/get" as const,
@@ -154,14 +207,15 @@ export const createServer = async () => {
       );
       throw error;
     }
-  });
+  }
 
-  // List Prompts Handler
-  server.setRequestHandler(ListPromptsRequestSchema, async (request) => {
+  private async handleListPrompts(
+    request: z.infer<typeof ListPromptsRequestSchema>
+  ) {
     const allPrompts: z.infer<typeof ListPromptsResultSchema>["prompts"] = [];
-    promptToClientMap.clear();
+    this.promptToClientMap.clear();
 
-    for (const connectedClient of connectedClients) {
+    for (const connectedClient of this.connectedClients) {
       try {
         const result = await connectedClient.client.request(
           {
@@ -178,7 +232,7 @@ export const createServer = async () => {
 
         if (result.prompts) {
           const promptsWithSource = result.prompts.map((prompt) => {
-            promptToClientMap.set(prompt.name, connectedClient);
+            this.promptToClientMap.set(prompt.name, connectedClient);
             return {
               ...prompt,
               description: `[${connectedClient.name}] ${
@@ -200,15 +254,16 @@ export const createServer = async () => {
       prompts: allPrompts,
       nextCursor: request.params?.cursor,
     };
-  });
+  }
 
-  // List Resources Handler
-  server.setRequestHandler(ListResourcesRequestSchema, async (request) => {
+  private async handleListResources(
+    request: z.infer<typeof ListResourcesRequestSchema>
+  ) {
     const allResources: z.infer<typeof ListResourcesResultSchema>["resources"] =
       [];
-    resourceToClientMap.clear();
+    this.resourceToClientMap.clear();
 
-    for (const connectedClient of connectedClients) {
+    for (const connectedClient of this.connectedClients) {
       try {
         const result = await connectedClient.client.request(
           {
@@ -222,7 +277,7 @@ export const createServer = async () => {
 
         if (result.resources) {
           result.resources.forEach((resource) => {
-            resourceToClientMap.set(resource.uri, connectedClient);
+            this.resourceToClientMap.set(resource.uri, connectedClient);
           });
           allResources.push(...result.resources);
         }
@@ -238,12 +293,13 @@ export const createServer = async () => {
       resources: allResources,
       nextCursor: undefined,
     };
-  });
+  }
 
-  // Read Resource Handler
-  server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
+  private async handleReadResource(
+    request: z.infer<typeof ReadResourceRequestSchema>
+  ) {
     const { uri } = request.params;
-    const clientForResource = resourceToClientMap.get(uri);
+    const clientForResource = this.resourceToClientMap.get(uri);
 
     if (!clientForResource) {
       throw new Error(`Unknown resource: ${uri}`);
@@ -267,59 +323,56 @@ export const createServer = async () => {
       );
       throw error;
     }
-  });
+  }
 
-  // List Resource Templates Handler
-  server.setRequestHandler(
-    ListResourceTemplatesRequestSchema,
-    async (request) => {
-      const allTemplates: ResourceTemplate[] = [];
+  private async handleListResourceTemplates(
+    request: z.infer<typeof ListResourceTemplatesRequestSchema>
+  ) {
+    const allTemplates: ResourceTemplate[] = [];
 
-      for (const connectedClient of connectedClients) {
-        try {
-          const result = await connectedClient.client.request(
-            {
-              method: "resources/templates/list" as const,
-              params: {
-                cursor: request.params?.cursor,
-                _meta: request.params?._meta || {
-                  progressToken: undefined,
-                },
+    for (const connectedClient of this.connectedClients) {
+      try {
+        const result = await connectedClient.client.request(
+          {
+            method: "resources/templates/list" as const,
+            params: {
+              cursor: request.params?.cursor,
+              _meta: request.params?._meta || {
+                progressToken: undefined,
               },
             },
-            ListResourceTemplatesResultSchema
-          );
+          },
+          ListResourceTemplatesResultSchema
+        );
 
-          if (result.resourceTemplates) {
-            const templatesWithSource = result.resourceTemplates.map(
-              (template) => ({
-                ...template,
-                name: `[${connectedClient.name}] ${template.name || ""}`,
-                description: template.description
-                  ? `[${connectedClient.name}] ${template.description}`
-                  : undefined,
-              })
-            );
-            allTemplates.push(...templatesWithSource);
-          }
-        } catch (error) {
-          console.error(
-            `Error fetching resource templates from ${connectedClient.name}:`,
-            error
+        if (result.resourceTemplates) {
+          const templatesWithSource = result.resourceTemplates.map(
+            (template) => ({
+              ...template,
+              name: `[${connectedClient.name}] ${template.name || ""}`,
+              description: template.description
+                ? `[${connectedClient.name}] ${template.description}`
+                : undefined,
+            })
           );
+          allTemplates.push(...templatesWithSource);
         }
+      } catch (error) {
+        console.error(
+          `Error fetching resource templates from ${connectedClient.name}:`,
+          error
+        );
       }
-
-      return {
-        resourceTemplates: allTemplates,
-        nextCursor: request.params?.cursor,
-      };
     }
-  );
 
-  const cleanup = async () => {
-    await Promise.all(connectedClients.map(({ cleanup }) => cleanup()));
-  };
+    return {
+      resourceTemplates: allTemplates,
+      nextCursor: request.params?.cursor,
+    };
+  }
 
-  return { server, cleanup };
-};
+  async close() {
+    await super.close();
+    await Promise.all(this.connectedClients.map(({ cleanup }) => cleanup()));
+  }
+}

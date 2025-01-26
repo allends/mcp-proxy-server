@@ -1,10 +1,10 @@
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import express from "express";
-import { createServer } from "./server.js";
+import { ProxyServer } from "./server.js";
 
 const app = express();
 
-const { server, cleanup } = await createServer();
+const server = await ProxyServer.create();
 
 let transport: SSEServerTransport;
 
@@ -14,7 +14,6 @@ app.get("/sse", async (req, res) => {
   await server.connect(transport);
 
   server.onclose = async () => {
-    await cleanup();
     await server.close();
     process.exit(0);
   };

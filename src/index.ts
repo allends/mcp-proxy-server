@@ -10,17 +10,16 @@
  */
 
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { createServer } from "./server.js";
+import { ProxyServer } from "./server.js";
 
 async function main() {
   const transport = new StdioServerTransport();
-  const { server, cleanup } = await createServer();
 
+  const server = await ProxyServer.create();
   await server.connect(transport);
 
   // Cleanup on exit
   process.on("SIGINT", async () => {
-    await cleanup();
     await server.close();
     process.exit(0);
   });
