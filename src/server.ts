@@ -50,50 +50,43 @@ export class ProxyServer extends Server {
       }
     );
 
-    this.bindHandlers();
+    this.setHandlers();
   }
 
-  private bindHandlers() {
+  private setHandlers() {
     // List Tools Handler
-    this.setRequestHandler(
-      ListToolsRequestSchema,
-      this.handleListTools.bind(this)
+    this.setRequestHandler(ListToolsRequestSchema, (request) =>
+      this.handleListTools(request)
     );
 
     // Call Tool Handler
-    this.setRequestHandler(
-      CallToolRequestSchema,
-      this.handleCallTool.bind(this)
+    this.setRequestHandler(CallToolRequestSchema, (request) =>
+      this.handleCallTool(request)
     );
 
     // Get Prompt Handler
-    this.setRequestHandler(
-      GetPromptRequestSchema,
-      this.handleGetPrompt.bind(this)
+    this.setRequestHandler(GetPromptRequestSchema, (request) =>
+      this.handleGetPrompt(request)
     );
 
     // List Prompts Handler
-    this.setRequestHandler(
-      ListPromptsRequestSchema,
-      this.handleListPrompts.bind(this)
+    this.setRequestHandler(ListPromptsRequestSchema, (request) =>
+      this.handleListPrompts(request)
     );
 
     // List Resources Handler
-    this.setRequestHandler(
-      ListResourcesRequestSchema,
-      this.handleListResources.bind(this)
+    this.setRequestHandler(ListResourcesRequestSchema, (request) =>
+      this.handleListResources(request)
     );
 
     // Read Resource Handler
-    this.setRequestHandler(
-      ReadResourceRequestSchema,
-      this.handleReadResource.bind(this)
+    this.setRequestHandler(ReadResourceRequestSchema, (request) =>
+      this.handleReadResource(request)
     );
 
     // List Resource Templates Handler
-    this.setRequestHandler(
-      ListResourceTemplatesRequestSchema,
-      this.handleListResourceTemplates.bind(this)
+    this.setRequestHandler(ListResourceTemplatesRequestSchema, (request) =>
+      this.handleListResourceTemplates(request)
     );
   }
 
