@@ -16,13 +16,15 @@
     "build": "tsc && node -e \"require('fs').chmodSync('build/index.js', '755')\"",
     "prepare": "bun run build",
     "watch": "bun --watch",
-    "inspector": "bunx @modelcontextprotocol/inspector bun src/index.ts"
+    "dev": "bun run --hot src/index.ts",
+    "inspector": "bunx @modelcontextprotocol/inspector bun src/serverSetup.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "0.6.0",
     "@types/cors": "^2.8.17",
     "cors": "^2.8.5",
     "express": "^4.21.1",
+    "hono": "^4.6.19",
     "zod-to-json-schema": "^3.23.5"
   },
   "devDependencies": {
