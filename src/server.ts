@@ -110,15 +110,7 @@ export class ProxyServer extends Server {
 
     for (const connectedClient of this.connectedClients) {
       try {
-        const result = await connectedClient.client.request(
-          {
-            method: "tools/list",
-            params: {
-              _meta: request.params?._meta,
-            },
-          },
-          ListToolsResultSchema
-        );
+        const result = await connectedClient.client.listTools();
 
         if (result.tools) {
           const toolsWithSource = result.tools.map((tool) => {
@@ -153,19 +145,7 @@ export class ProxyServer extends Server {
 
     try {
       console.log("Forwarding tool call:", name);
-      return await clientForTool.client.request(
-        {
-          method: "tools/call",
-          params: {
-            name,
-            arguments: args || {},
-            _meta: {
-              progressToken: request.params._meta?.progressToken,
-            },
-          },
-        },
-        CompatibilityCallToolResultSchema
-      );
+      return await clientForTool.client.callTool(request.params);
     } catch (error) {
       console.error(`Error calling tool through ${clientForTool.name}:`, error);
       throw error;
@@ -184,22 +164,7 @@ export class ProxyServer extends Server {
 
     try {
       console.log("Forwarding prompt request:", name);
-      const response = await clientForPrompt.client.request(
-        {
-          method: "prompts/get" as const,
-          params: {
-            name,
-            arguments: request.params.arguments || {},
-            _meta: request.params._meta || {
-              progressToken: undefined,
-            },
-          },
-        },
-        GetPromptResultSchema
-      );
-
-      console.log("Prompt result:", response);
-      return response;
+      return await clientForPrompt.client.getPrompt(request.params);
     } catch (error) {
       console.error(
         `Error getting prompt from ${clientForPrompt.name}:`,
@@ -217,18 +182,7 @@ export class ProxyServer extends Server {
 
     for (const connectedClient of this.connectedClients) {
       try {
-        const result = await connectedClient.client.request(
-          {
-            method: "prompts/list" as const,
-            params: {
-              cursor: request.params?.cursor,
-              _meta: request.params?._meta || {
-                progressToken: undefined,
-              },
-            },
-          },
-          ListPromptsResultSchema
-        );
+        const result = await connectedClient.client.listPrompts(request.params);
 
         if (result.prompts) {
           const promptsWithSource = result.prompts.map((prompt) => {
@@ -265,12 +219,8 @@ export class ProxyServer extends Server {
 
     for (const connectedClient of this.connectedClients) {
       try {
-        const result = await connectedClient.client.request(
-          {
-            method: "resources/list",
-            params: request.params,
-          },
-          ListResourcesResultSchema
+        const result = await connectedClient.client.listResources(
+          request.params
         );
 
         console.log("Result:", result);
@@ -306,16 +256,7 @@ export class ProxyServer extends Server {
     }
 
     try {
-      return await clientForResource.client.request(
-        {
-          method: "resources/read",
-          params: {
-            uri,
-            _meta: request.params._meta,
-          },
-        },
-        ReadResourceResultSchema
-      );
+      return await clientForResource.client.readResource(request.params);
     } catch (error) {
       console.error(
         `Error reading resource from ${clientForResource.name}:`,
@@ -332,17 +273,8 @@ export class ProxyServer extends Server {
 
     for (const connectedClient of this.connectedClients) {
       try {
-        const result = await connectedClient.client.request(
-          {
-            method: "resources/templates/list" as const,
-            params: {
-              cursor: request.params?.cursor,
-              _meta: request.params?._meta || {
-                progressToken: undefined,
-              },
-            },
-          },
-          ListResourceTemplatesResultSchema
+        const result = await connectedClient.client.listResourceTemplates(
+          request.params
         );
 
         if (result.resourceTemplates) {
