@@ -15,11 +15,11 @@ import {
   ListResourceTemplatesResultSchema,
   ResourceTemplate,
   CompatibilityCallToolResultSchema,
-  GetPromptResultSchema
+  GetPromptResultSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import { createClients, ConnectedClient } from './client.js';
-import { Config, loadConfig } from './config.js';
-import { z } from 'zod';
+import { createClients, ConnectedClient } from "./client.js";
+import { Config, loadConfig } from "./config.js";
+import { z } from "zod";
 
 export const createServer = async () => {
   // Load configuration and connect to servers
@@ -43,38 +43,43 @@ export const createServer = async () => {
         resources: { subscribe: true },
         tools: {},
       },
-    },
+    }
   );
 
   // List Tools Handler
   server.setRequestHandler(ListToolsRequestSchema, async (request) => {
     const allTools: Tool[] = [];
     toolToClientMap.clear();
-    
+
     for (const connectedClient of connectedClients) {
       try {
         const result = await connectedClient.client.request(
           {
-            method: 'tools/list',
+            method: "tools/list",
             params: {
-              _meta: request.params?._meta
-            }
+              _meta: request.params?._meta,
+            },
           },
           ListToolsResultSchema
         );
-        
+
         if (result.tools) {
-          const toolsWithSource = result.tools.map(tool => {
+          const toolsWithSource = result.tools.map((tool) => {
             toolToClientMap.set(tool.name, connectedClient);
             return {
               ...tool,
-              description: `[${connectedClient.name}] ${tool.description || ''}`
+              description: `[${connectedClient.name}] ${
+                tool.description || ""
+              }`,
             };
           });
           allTools.push(...toolsWithSource);
         }
       } catch (error) {
-        console.error(`Error fetching tools from ${connectedClient.name}:`, error);
+        console.error(
+          `Error fetching tools from ${connectedClient.name}:`,
+          error
+        );
       }
     }
 
@@ -85,25 +90,25 @@ export const createServer = async () => {
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
     const clientForTool = toolToClientMap.get(name);
-    
+
     if (!clientForTool) {
       throw new Error(`Unknown tool: ${name}`);
     }
 
     try {
-      console.log('Forwarding tool call:', name);
+      console.log("Forwarding tool call:", name);
 
       // Use the correct schema for tool calls
       return await clientForTool.client.request(
         {
-          method: 'tools/call',
+          method: "tools/call",
           params: {
             name,
             arguments: args || {},
             _meta: {
-              progressToken: request.params._meta?.progressToken
-            }
-          }
+              progressToken: request.params._meta?.progressToken,
+            },
+          },
         },
         CompatibilityCallToolResultSchema
       );
@@ -117,114 +122,121 @@ export const createServer = async () => {
   server.setRequestHandler(GetPromptRequestSchema, async (request) => {
     const { name } = request.params;
     const clientForPrompt = promptToClientMap.get(name);
-    
+
     if (!clientForPrompt) {
       throw new Error(`Unknown prompt: ${name}`);
     }
 
     try {
-      console.log('Forwarding prompt request:', name);
+      console.log("Forwarding prompt request:", name);
 
       // Match the exact structure from the example code
       const response = await clientForPrompt.client.request(
         {
-          method: 'prompts/get' as const,
+          method: "prompts/get" as const,
           params: {
             name,
             arguments: request.params.arguments || {},
             _meta: request.params._meta || {
-              progressToken: undefined
-            }
-          }
+              progressToken: undefined,
+            },
+          },
         },
         GetPromptResultSchema
       );
 
-      console.log('Prompt result:', response);
+      console.log("Prompt result:", response);
       return response;
     } catch (error) {
-      console.error(`Error getting prompt from ${clientForPrompt.name}:`, error);
+      console.error(
+        `Error getting prompt from ${clientForPrompt.name}:`,
+        error
+      );
       throw error;
     }
   });
 
   // List Prompts Handler
   server.setRequestHandler(ListPromptsRequestSchema, async (request) => {
-    const allPrompts: z.infer<typeof ListPromptsResultSchema>['prompts'] = [];
+    const allPrompts: z.infer<typeof ListPromptsResultSchema>["prompts"] = [];
     promptToClientMap.clear();
-    
+
     for (const connectedClient of connectedClients) {
       try {
         const result = await connectedClient.client.request(
           {
-            method: 'prompts/list' as const,
+            method: "prompts/list" as const,
             params: {
               cursor: request.params?.cursor,
               _meta: request.params?._meta || {
-                progressToken: undefined
-              }
-            }
+                progressToken: undefined,
+              },
+            },
           },
           ListPromptsResultSchema
         );
-        
+
         if (result.prompts) {
-          const promptsWithSource = result.prompts.map(prompt => {
+          const promptsWithSource = result.prompts.map((prompt) => {
             promptToClientMap.set(prompt.name, connectedClient);
             return {
               ...prompt,
-              description: `[${connectedClient.name}] ${prompt.description || ''}`
+              description: `[${connectedClient.name}] ${
+                prompt.description || ""
+              }`,
             };
           });
           allPrompts.push(...promptsWithSource);
         }
       } catch (error) {
-        console.error(`Error fetching prompts from ${connectedClient.name}:`, error);
+        console.error(
+          `Error fetching prompts from ${connectedClient.name}:`,
+          error
+        );
       }
     }
 
-    return { 
+    return {
       prompts: allPrompts,
-      nextCursor: request.params?.cursor
+      nextCursor: request.params?.cursor,
     };
   });
 
   // List Resources Handler
   server.setRequestHandler(ListResourcesRequestSchema, async (request) => {
-    const allResources: z.infer<typeof ListResourcesResultSchema>['resources'] = [];
+    const allResources: z.infer<typeof ListResourcesResultSchema>["resources"] =
+      [];
     resourceToClientMap.clear();
-    
+
     for (const connectedClient of connectedClients) {
       try {
         const result = await connectedClient.client.request(
           {
-            method: 'resources/list',
-            params: {
-              cursor: request.params?.cursor,
-              _meta: request.params?._meta
-            }
+            method: "resources/list",
+            params: request.params,
           },
           ListResourcesResultSchema
         );
-        
+
+        console.log("Result:", result);
+
         if (result.resources) {
-          const resourcesWithSource = result.resources.map(resource => {
+          result.resources.forEach((resource) => {
             resourceToClientMap.set(resource.uri, connectedClient);
-            return {
-              ...resource,
-              name: `[${connectedClient.name}] ${resource.name || ''}`
-            };
           });
-          allResources.push(...resourcesWithSource);
+          allResources.push(...result.resources);
         }
       } catch (error) {
-        console.error(`Error fetching resources from ${connectedClient.name}:`, error);
+        console.error(
+          `Error fetching resources from ${connectedClient.name}:`,
+          error
+        );
       }
     }
 
-    return { 
+    return {
       resources: allResources,
-      nextCursor: undefined
+      nextCursor: undefined,
     };
   });
 
@@ -232,7 +244,7 @@ export const createServer = async () => {
   server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
     const { uri } = request.params;
     const clientForResource = resourceToClientMap.get(uri);
-    
+
     if (!clientForResource) {
       throw new Error(`Unknown resource: ${uri}`);
     }
@@ -240,57 +252,70 @@ export const createServer = async () => {
     try {
       return await clientForResource.client.request(
         {
-          method: 'resources/read',
+          method: "resources/read",
           params: {
             uri,
-            _meta: request.params._meta
-          }
+            _meta: request.params._meta,
+          },
         },
         ReadResourceResultSchema
       );
     } catch (error) {
-      console.error(`Error reading resource from ${clientForResource.name}:`, error);
+      console.error(
+        `Error reading resource from ${clientForResource.name}:`,
+        error
+      );
       throw error;
     }
   });
 
   // List Resource Templates Handler
-  server.setRequestHandler(ListResourceTemplatesRequestSchema, async (request) => {
-    const allTemplates: ResourceTemplate[] = [];
-    
-    for (const connectedClient of connectedClients) {
-      try {
-        const result = await connectedClient.client.request(
-          {
-            method: 'resources/templates/list' as const,
-            params: {
-              cursor: request.params?.cursor,
-              _meta: request.params?._meta || {
-                progressToken: undefined
-              }
-            }
-          },
-          ListResourceTemplatesResultSchema
-        );
-        
-        if (result.resourceTemplates) {
-          const templatesWithSource = result.resourceTemplates.map(template => ({
-            ...template,
-            name: `[${connectedClient.name}] ${template.name || ''}`,
-            description: template.description ? `[${connectedClient.name}] ${template.description}` : undefined
-          }));
-          allTemplates.push(...templatesWithSource);
-        }
-      } catch (error) {
-        console.error(`Error fetching resource templates from ${connectedClient.name}:`, error);
-      }
-    }
+  server.setRequestHandler(
+    ListResourceTemplatesRequestSchema,
+    async (request) => {
+      const allTemplates: ResourceTemplate[] = [];
 
-    return { 
-      resourceTemplates: allTemplates,
-      nextCursor: request.params?.cursor
-    };
-  });
+      for (const connectedClient of connectedClients) {
+        try {
+          const result = await connectedClient.client.request(
+            {
+              method: "resources/templates/list" as const,
+              params: {
+                cursor: request.params?.cursor,
+                _meta: request.params?._meta || {
+                  progressToken: undefined,
+                },
+              },
+            },
+            ListResourceTemplatesResultSchema
+          );
+
+          if (result.resourceTemplates) {
+            const templatesWithSource = result.resourceTemplates.map(
+              (template) => ({
+                ...template,
+                name: `[${connectedClient.name}] ${template.name || ""}`,
+                description: template.description
+                  ? `[${connectedClient.name}] ${template.description}`
+                  : undefined,
+              })
+            );
+            allTemplates.push(...templatesWithSource);
+          }
+        } catch (error) {
+          console.error(
+            `Error fetching resource templates from ${connectedClient.name}:`,
+            error
+          );
+        }
+      }
+
+      return {
+        resourceTemplates: allTemplates,
+        nextCursor: request.params?.cursor,
+      };
+    }
+  );
 
   const cleanup = async () => {
     await Promise.all(connectedClients.map(({ cleanup }) => cleanup()));

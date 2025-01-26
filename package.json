@@ -14,9 +14,9 @@
   ],
   "scripts": {
     "build": "tsc && node -e \"require('fs').chmodSync('build/index.js', '755')\"",
-    "prepare": "npm run build",
-    "watch": "tsc --watch",
-    "inspector": "npx @modelcontextprotocol/inspector build/index.js"
+    "prepare": "bun run build",
+    "watch": "bun --watch",
+    "inspector": "bunx @modelcontextprotocol/inspector bun src/index.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "0.6.0",
