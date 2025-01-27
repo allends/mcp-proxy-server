@@ -1,9 +1,8 @@
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { ProxyServer } from "./server.js";
-import { RemoteProxyServer } from "./remoteServer.js";
+import { McpServer } from "./mcpServer.js";
 
 try {
-  const server = await RemoteProxyServer.create();
+  const server = new McpServer();
   const transport = new StdioServerTransport();
 
   await server.connect(transport);

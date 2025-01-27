@@ -1,0 +1,22 @@
+{
+  "name": "@allends/remote-mcp-client",
+  "version": "0.0.1",
+  "module": "index.ts",
+  "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "dev": "bun run --hot index.ts",
+    "inspector": "bunx @modelcontextprotocol/inspector bun index.ts --hot"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "0.6.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^20.11.24",
+    "nodemon": "^3.1.7",
+    "typescript": "^5.3.3"
+  }
+}

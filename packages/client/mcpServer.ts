@@ -9,14 +9,11 @@ import {
   ReadResourceRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
+import { networkInterfaces } from "os";
 
-export class RemoteProxyServer extends Server {
-  // use this to create a new instance
-  public static async create() {
-    return new RemoteProxyServer();
-  }
-
-  private constructor() {
+export class McpServer extends Server {
+  private localIpAddress: string;
+  constructor() {
     super(
       {
         name: "mcp-proxy-server",
@@ -31,7 +28,23 @@ export class RemoteProxyServer extends Server {
       }
     );
 
+    this.localIpAddress = this.getLocalIpAddress();
     this.setHandlers();
+
+    console.error(`Local IP Address: ${this.localIpAddress}`);
+  }
+
+  private getLocalIpAddress(): string {
+    const nets = networkInterfaces();
+
+    for (const name of Object.keys(nets)) {
+      for (const net of nets[name] ?? []) {
+        if (!net.internal && net.family === "IPv4") {
+          return `http://${net.address}:3001`;
+        }
+      }
+    }
+    return "http://localhost:3001"; // Fallback to localhost
   }
 
   private setHandlers() {
@@ -74,14 +87,20 @@ export class RemoteProxyServer extends Server {
   private async handleListTools(
     request: z.infer<typeof ListToolsRequestSchema>
   ) {
-    const response = await fetch("http://localhost:3001/tools");
+    const response = await fetch(`${this.localIpAddress}/tools`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(request),
+    });
     const data = await response.json();
     return data;
   }
 
   private async handleCallTool(request: z.infer<typeof CallToolRequestSchema>) {
     console.error("Forwarding tool call:", request);
-    const response = await fetch(`http://localhost:3001/tool`, {
+    const response = await fetch(`${this.localIpAddress}/tool`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -95,7 +114,7 @@ export class RemoteProxyServer extends Server {
   private async handleGetPrompt(
     request: z.infer<typeof GetPromptRequestSchema>
   ) {
-    const response = await fetch(`http://localhost:3001/prompt`, {
+    const response = await fetch(`${this.localIpAddress}/prompt`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -109,8 +128,8 @@ export class RemoteProxyServer extends Server {
   private async handleListPrompts(
     request: z.infer<typeof ListPromptsRequestSchema>
   ) {
-    const response = await fetch(`http://localhost:3001/prompts`, {
-      method: "GET",
+    const response = await fetch(`${this.localIpAddress}/prompts`, {
+      method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
@@ -123,8 +142,8 @@ export class RemoteProxyServer extends Server {
   private async handleListResources(
     request: z.infer<typeof ListResourcesRequestSchema>
   ) {
-    const response = await fetch(`http://localhost:3001/resources`, {
-      method: "GET",
+    const response = await fetch(`${this.localIpAddress}/resources`, {
+      method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
@@ -137,7 +156,7 @@ export class RemoteProxyServer extends Server {
   private async handleReadResource(
     request: z.infer<typeof ReadResourceRequestSchema>
   ) {
-    const response = await fetch(`http://localhost:3001/resource`, {
+    const response = await fetch(`${this.localIpAddress}/resource`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -151,8 +170,8 @@ export class RemoteProxyServer extends Server {
   private async handleListResourceTemplates(
     request: z.infer<typeof ListResourceTemplatesRequestSchema>
   ) {
-    const response = await fetch(`http://localhost:3001/resource/templates`, {
-      method: "GET",
+    const response = await fetch(`${this.localIpAddress}/resource/templates`, {
+      method: "POST",
       headers: {
         "Content-Type": "application/json",
       },

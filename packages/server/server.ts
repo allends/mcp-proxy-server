@@ -9,11 +9,11 @@ import {
   ListResourceTemplatesRequestSchema,
   ListToolsRequestSchema,
   ReadResourceRequestSchema,
-  ResourceTemplate,
-  Tool,
+  type ResourceTemplate,
+  type Tool,
 } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
-import { ConnectedClient, createClients } from "./client.js";
+import { type ConnectedClient, createClients } from "./client/utils.js";
 import { loadConfig } from "./config.js";
 
 export class ProxyServer extends Server {

@@ -4,33 +4,31 @@ import {
   ListPromptsRequestSchema,
   ListResourcesRequestSchema,
   ListResourceTemplatesRequestSchema,
+  ListToolsRequestSchema,
   ReadResourceRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import express from "express";
-import { ProxyClient } from "./client.js";
+import { Router } from "express";
+import { ProxyClient } from "./client/index.js";
 
-const router = express.Router();
-
-router.use(express.json());
+const router = Router();
 
 const client = await ProxyClient.create();
 
-router.get("/tools", async (req, res) => {
-  const tools = await client.handleListTools();
+router.post("/tools", async (req, res) => {
+  const requestInfo = ListToolsRequestSchema.parse(req.body);
+  const tools = await client.handleListTools(requestInfo);
 
   res.send(tools);
 });
 
 router.post("/tool", async (req, res) => {
-  console.log(req.body);
-
   const requestInfo = CallToolRequestSchema.parse(req.body);
   const tool = await client.handleCallTool(requestInfo);
 
   res.send(tool);
 });
 
-router.get("/prompts", async (req, res) => {
+router.post("/prompts", async (req, res) => {
   const requestInfo = ListPromptsRequestSchema.parse(req.body);
   const prompts = await client.handleListPrompts(requestInfo);
 
@@ -44,7 +42,7 @@ router.post("/prompt", async (req, res) => {
   res.send(prompt);
 });
 
-router.get("/resources", async (req, res) => {
+router.post("/resources", async (req, res) => {
   const requestInfo = ListResourcesRequestSchema.parse(req.body);
   const resources = await client.handleListResources(requestInfo);
 
@@ -58,17 +56,11 @@ router.post("/resource", async (req, res) => {
   res.send(resource);
 });
 
-router.get("/resource/templates", async (req, res) => {
+router.post("/resource/templates", async (req, res) => {
   const requestInfo = ListResourceTemplatesRequestSchema.parse(req.body);
   const templates = await client.handleListResourceTemplates(requestInfo);
 
   res.send(templates);
 });
 
-const app = express();
-
-app.use(router);
-
-app.listen(3001, () => {
-  console.log("Server is running on port 3001");
-});
+export default router;
