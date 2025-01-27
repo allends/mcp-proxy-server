@@ -1,6 +1,6 @@
 {
   "name": "@allends/remote-mcp-client",
-  "version": "0.0.6",
+  "version": "0.0.10",
   "module": "index.ts",
   "type": "module",
   "publishConfig": {
@@ -13,7 +13,7 @@
     "dist"
   ],
   "scripts": {
-    "prepare": "bun build index.ts --outdir dist --target node --",
+    "prepare": "bun build index.ts --outdir dist --target node",
     "dev": "bun run --hot index.ts",
     "inspector": "bunx @modelcontextprotocol/inspector bun index.ts --hot"
   },
